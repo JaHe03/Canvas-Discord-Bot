@@ -135,7 +135,7 @@ class autoAssignmentNotify(commands.Cog):
 
         return overdueAssignments
 
-    @tasks.loop(minutes=30)
+    @tasks.loop(minutes=5)
     async def check_assignments(self):    
         '''
         Check for assignments every x seconds (for development) 
@@ -145,55 +145,78 @@ class autoAssignmentNotify(commands.Cog):
         and then check for assignments for each user. If there are any assignments
         due in the next x days, the user will be messaged with the assignments.
         '''
-        upcomingUsers = await self.get_users(type_filter="upcoming")  
+        # --- Overdue Check ---
         overdueUsers = await self.get_users(type_filter="overdue")
-
-        for snowflake, api_key in overdueUsers.items(): 
-            overdueAssignments = self.overdueAssignments(api_key)
-            if overdueAssignments:
+        for snowflake, api_key in overdueUsers.items():
+            try:
+                overdueAssignments_list = self.overdueAssignments(api_key)
+                organized_overdue = self.organizeCourse(overdueAssignments_list, api_key)
                 user = await self.client.fetch_user(snowflake)
                 if user:
                     await self.sendEmbed(
                         user,
                         "Overdue Assignments from the Past 5 Days",
-                        self.organizeCourse(overdueAssignments, api_key),
-                        0xED4245
+                        organized_overdue, 
+                        0xED4245 
                     )
-                            
-        for snowflake, api_key in upcomingUsers.items(): 
-            upcomingAssignments = await self.get_assignments(api_key)
-            if upcomingAssignments:
+            except Exception as e:
+                print(f"Error processing overdue assignments for user {snowflake}: {e}")
+                
+
+      
+        upcomingUsers = await self.get_users(type_filter="upcoming")
+        for snowflake, api_key in upcomingUsers.items():
+            try:
+                upcomingAssignments_list = await self.get_assignments(api_key) 
+                organized_upcoming = self.organizeCourse(upcomingAssignments_list, api_key)
                 user = await self.client.fetch_user(snowflake)
                 if user:
                     await self.sendEmbed(
                         user,
-                        "Upcoming Assignments Due in the Next 7 Days",
-                        self.organizeCourse(upcomingAssignments, api_key),
-                        0x5865F2
+                        "Upcoming Assignments Due in the Next 5 Days", 
+                        organized_upcoming, 
+                        0x5865F2 
                     )
+            except Exception as e:
+                print(f"Error processing upcoming assignments for user {snowflake}: {e}")
     
 
-    '''
-    Sends a nicely formatted embed to the user with the overdue and upcoming assignments.
-    The embed will contain the course name and the assignments for that course.
-    '''
     async def sendEmbed(self, user, title, courseAssignments, color):
+        '''
+        Sends a nicely formatted embed to the user.
+        If courseAssignments is empty, indicates that no assignments were found.
+        '''
         embed = Embed(title=title, color=color)
 
-        for course, assignments in courseAssignments.items():
-            value = ""
-            for assignment in assignments:
-                due = dt.strptime(assignment.due_at, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=pytz.utc)
-                due_local = due.astimezone(pytz.timezone('US/Eastern'))
-                due_str = due_local.strftime('%m/%d/%Y at %I:%M %p')
-                value += f"[{assignment.name}]({assignment.html_url}) — Due: **{due_str}**\n"
+        if not courseAssignments:
+            embed.description = "No assignments found matching this criteria."
+        else:
+            for course, assignments in courseAssignments.items():
+                value = ""
+                assignments.sort(key=lambda x: dt.strptime(x.due_at, '%Y-%m-%dT%H:%M:%SZ'))
+                for assignment in assignments:
+                    due = dt.strptime(assignment.due_at, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=pytz.utc)
+                    due_local = due.astimezone(pytz.timezone('US/Eastern')) 
+                    due_str = due_local.strftime('%m/%d %I:%M %p')
 
-            embed.add_field(name=course, value=value[:1024] if value else "No upcoming tasks.", inline=False)
+                    line = f"[{assignment.name}]({assignment.html_url}) — Due: **{due_str}**\n"
+                    if len(value) + len(line) > 1024:
+                         value += "..."
+                         break
+                    value += line
+
+                embed.add_field(name=course, value=value if value else "Error processing assignments for this course.", inline=False) 
+
+        if len(embed.fields) > 25:
+             embed.add_field(name="Note", value="Too many courses with assignments to display all.", inline=False)
+             embed.fields = embed.fields[:25] 
 
         try:
             await user.send(embed=embed)
+        except nextcord.errors.Forbidden:
+             print(f"Failed to send embed to {user} (ID: {user.id}): Bot is blocked or has no permission in DMs.")
         except Exception as e:
-            print(f"Failed to send embed to {user}: {e}")
+            print(f"Failed to send embed to {user} (ID: {user.id}): {e}")
 
 
     '''
@@ -203,7 +226,6 @@ class autoAssignmentNotify(commands.Cog):
         canvas = canvasapi.Canvas(API_URL, api_key)
         courseAssignments = {}
         users_courses = {course.id: course for course in canvas.get_courses(enrollment_state='active')}
-
         for assignment in assignments:
             course_id = assignment.course_id
             course_name = users_courses.get(course_id, {}).name if course_id in users_courses else "Unknown Course"
