@@ -135,7 +135,7 @@ class autoAssignmentNotify(commands.Cog):
 
         return overdueAssignments
 
-    @tasks.loop(minutes=5)
+    @tasks.loop(hours=12)
     async def check_assignments(self):    
         '''
         Check for assignments every x seconds (for development) 

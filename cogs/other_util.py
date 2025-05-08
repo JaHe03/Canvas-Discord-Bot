@@ -26,14 +26,17 @@ class other_util(commands.Cog):
         """
         await interaction.response.send_message(f"Welcome to the Canvas Helper bot!  Here are the commands you can use: \
             \n help - prints this message \
+            \n courses - lists current enrolled courses and allows the user to select one \
             \n announcements - prints the announcements for the course \
             \n grade - prints your current grade for a course \
             \n poll - creates an embedded poll with vote reactions \
+            \n upcoming - lists upcoming assignments for th nest 5 days \
+            \n semester gpa - calculates your GPA for the semester \
             \n announce - creates an embedded announcement on Dicsord and pins the message \
-            \n courses - lists current enrolled courses and allows the user to select one \
-            \n login - To get API key, Canvas page > Account > Settings > Scroll down click 'New Access Token' > Generate Token > Copy key and paste into box > press 'enter' ", ephemeral=True)
-
-
+            \n assignment - lists all assignments for the course \
+            \n reminders - Disable or enable DM reminders for both 'overdue' and 'upcoming'\
+            \n login - To get API key, Canvas page > Account > Settings > Scroll down click 'New Access Token' > Generate Token > Copy key and paste into box > press 'enter' \
+            \n logout - Logs you out of the bot.", ephemeral=True)
 
     def isValidAPIKey(self, api_key : str) -> bool:
         """
