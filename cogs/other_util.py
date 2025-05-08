@@ -31,7 +31,7 @@ class other_util(commands.Cog):
             \n poll - creates an embedded poll with vote reactions \
             \n announce - creates an embedded announcement on Dicsord and pins the message \
             \n courses - lists current enrolled courses and allows the user to select one \
-            \n login - logs the user into the database using their Canvas access token", ephemeral=True)
+            \n login - To get API key, Canvas page > Account > Settings > Scroll down click 'New Access Token' > Generate Token > Copy key and paste into box > press 'enter' ", ephemeral=True)
 
 
 
